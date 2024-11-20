@@ -9,7 +9,8 @@ const CameraModels = {
   WyzeCamPanv2: "HL_PAN2",
   WyzeCamPanv3: "HL_PAN3",
   WyzeCamOutdoor: "WVOD1",
-  WyzeCamOutdoor2: "HL_WCO2"
+  WyzeCamOutdoor2: "HL_WCO2",
+  WyzeCamBatteryPro: "AN_RSCW"
 }
 exports.CameraModels = CameraModels;
 
