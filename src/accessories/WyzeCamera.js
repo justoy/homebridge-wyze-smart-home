@@ -1,6 +1,7 @@
 const { Service, Characteristic } = require("../types");
 const WyzeAccessory = require("./WyzeAccessory");
 const enums = require("../enums");
+const batteryCamPro = require("../batteryCamPro");
 
 const noResponse = new Error("No Response");
 noResponse.toString = () => {
@@ -186,6 +187,23 @@ module.exports = class WyzeCamera extends WyzeAccessory {
   }
 
   async updateCharacteristics(device) {
+    if (this.product_model === enums.CameraModels.WyzeCamBatteryPro) {
+      try {
+        this.power_switch = await batteryCamPro.getPower(
+          this.plugin.client, this.mac, this.product_model
+        );
+        this.privacySwitch
+          .getCharacteristic(Characteristic.On)
+          .updateValue(this.power_switch);
+      } catch (error) {
+        this.power_switch = undefined;
+        this.privacySwitch
+          .getCharacteristic(Characteristic.On)
+          .updateValue(noResponse);
+        this.plugin.log.error(`[Camera] Could not read power for ${this.display_name}: ${error.message}`);
+      }
+      return;
+    }
     if (device.conn_state === 0) {
       if (this.plugin.config.pluginLoggingEnabled)
         this.plugin.log(
@@ -378,7 +396,10 @@ module.exports = class WyzeCamera extends WyzeAccessory {
   }
 
   async handleOnGetPrivacySwitch() {
-    if (this.cameraAccessoryAttached()) {
+    if (this.product_model === enums.CameraModels.WyzeCamBatteryPro && typeof this.power_switch !== 'boolean') {
+      throw noResponse;
+    }
+    if (this.product_model !== enums.CameraModels.WyzeCamBatteryPro && this.cameraAccessoryAttached()) {
       this.powerSwitch = this.on;
     } else this.powerSwitch = this.power_switch;
     if (this.plugin.config.pluginLoggingEnabled)
@@ -461,7 +482,12 @@ module.exports = class WyzeCamera extends WyzeAccessory {
       this.plugin.log(
         `[Camera] [Privacy] Setting Current State for ${this.mac} (${this.display_name}) to ${value}`
       );
-    this.plugin.client.cameraPrivacy(
+    if (this.product_model === enums.CameraModels.WyzeCamBatteryPro) {
+      await batteryCamPro.setPower(this.plugin.client, this.mac, this.product_model, value);
+      this.power_switch = value;
+      return;
+    }
+    await this.plugin.client.cameraPrivacy(
       this.mac,
       this.product_model,
       value ? "power_on" : "power_off"
